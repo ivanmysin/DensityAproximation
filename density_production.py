@@ -19,10 +19,10 @@ EH = -32*mV # -20*mV
 Eexc = 0 *mV
 Einh = -75*mV
 
-gNa = 30*msiemens
-gK = 23*msiemens
+gNa = 30*mS
+gK = 23*mS
 gKA = 16.0*mS
-gH = 8.0 * msiemens
+gH = 8.0 * mS
 sigma = 0.4*mV
 
 omega_1_e = 2 * Hz # [0.2 2]
@@ -31,10 +31,10 @@ omega_3_e = 35 * Hz # [25  45]
 omega_4_e = 75 * Hz # [50  90]
 
 
-ampl_1_e = 5 * mS # [0.2 5]
-ampl_2_e = 2 * mS # [0.2 5]
-ampl_3_e = 1 * mS # [0.2 5]
-ampl_4_e = 0.5 * mS # [0.2 5]
+ampl_1_e = 0.2 * mS # [0.2 5]
+ampl_2_e = 0.1 * mS # [0.2 5]
+ampl_3_e = 0.1 * mS # [0.2 5]
+ampl_4_e = 0.05 * mS # [0.2 5]
 
 
 omega_1_i = 0.5 * Hz # [0.2 2]
@@ -43,17 +43,16 @@ omega_3_i = 40 * Hz # [25  45]
 omega_4_i = 70 * Hz # [50  90]
 
 
-ampl_1_i = 10 * mS # [0.2 25]
-ampl_2_i = 5 * mS # [0.2 25]
-ampl_3_i = 2 * mS # [0.2 25]
-ampl_4_i = 1 * mS # [0.2 25]
+ampl_1_i = 2 * mS # [0.2 25]
+ampl_2_i = 1 * mS # [0.2 25]
+ampl_3_i = 0.5 * mS # [0.2 25]
+ampl_4_i = 0.2 * mS # [0.2 25]
 
 
 
 
-N = 4000
+N = 1000
 
-5
 # OLM Model
 eqs = '''
 dV/dt = (INa + IKdr + IL + IKA + IH + Iexc + Iinh + Iext)/Cm + sigma*xi/ms**0.5 : volt
@@ -103,10 +102,12 @@ gexc_monitor = StateMonitor(neuron, 'gexc', record=0)
 ginh_monitor = StateMonitor(neuron, 'ginh', record=0)
 
 
-run(200*ms, report='text')
+run(2000*ms, report='text')
 
 Varr = np.asarray(M_full_V.V/mV)
 
+plt.plot(Varr[400:500, :].T)
+plt.show()
 
 hists = np.apply_along_axis(myhist, 0, Varr)
 hists = hists.astype(np.float32)
