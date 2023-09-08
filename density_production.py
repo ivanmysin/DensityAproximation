@@ -1,13 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.special import softmax
+from scipy.signal.windows import parzen
 from brian2 import *
 import h5py
 defaultclock.dt = 0.04*ms
 
 def myhist(arr):
-    dens, _ = np.histogram(arr, range = [-90, 50], bins = 500, density=True)
-    dens = softmax(dens)
+    dens, _ = np.histogram(arr, range = [-90, 90], bins = 1801, density=True)
+    dens = softmax(100 * dens)
     return dens
 
 Cm = 1.3*uF # /cm**2
@@ -51,7 +52,8 @@ ampl_4_i = 0.2 * mS # [0.2 25]
 
 
 
-N = 1000
+N = 2000
+duration = 2000 # ms
 
 # OLM Model
 eqs = '''
@@ -91,7 +93,7 @@ ginh = ampl_1_i*0.5*(cos(2*pi*t*omega_1_i) + 1 ) + ampl_2_i*0.5*(cos(2*pi*t*omeg
 
 
 
-neuron = NeuronGroup(N, eqs, method='heun', namespace={"Iext" : 0.0*uA})
+neuron = NeuronGroup(N, eqs, method='heun', threshold='V > -40*mV', namespace={"Iext" : 0.0*uA})
 neuron.V = -90*mV
 neuron.n = 0.09
 neuron.h = 1.0
@@ -101,16 +103,15 @@ M_full_V = StateMonitor(neuron, 'V', record=np.arange(N))
 gexc_monitor = StateMonitor(neuron, 'gexc', record=0)
 ginh_monitor = StateMonitor(neuron, 'ginh', record=0)
 
+firing_monitor = SpikeMonitor(neuron)
 
-run(2000*ms, report='text')
+run(duration*ms, report='text')
 
 Varr = np.asarray(M_full_V.V/mV)
-
-plt.plot(Varr[400:500, :].T)
-plt.show()
-
 hists = np.apply_along_axis(myhist, 0, Varr)
 hists = hists.astype(np.float32)
+
+
 print(hists.shape)
 
 file = h5py.File('data.hdf5', mode='w')
@@ -118,6 +119,36 @@ file.create_dataset('density', data=hists)
 file.create_dataset('gexc', data=np.asarray(gexc_monitor.gexc/mS).astype(np.float32))
 file.create_dataset('ginh', data=np.asarray(ginh_monitor.ginh/mS).astype(np.float32))
 file.close()
+
+####################
+population_firing_rate, bins = np.histogram(firing_monitor.t / ms, range=[0, duration], bins=10*duration+1)
+dbins = bins[1] - bins[0]
+population_firing_rate = population_firing_rate / N / (0.001 * dbins) # spikes per second
+
+###### smoothing of population firing rate #########
+win = parzen(101)
+win = win / np.sum(win)
+population_firing_rate = np.convolve(population_firing_rate, win, mode='same')
+
+##### plotting ####################################
+fig, axes = plt.subplots(nrows=2)
+axes[0].plot(bins[1:], population_firing_rate, label="Crossing the threshold")
+
+#dt = 0.04*ms, range=[-90, 90], bins = 1800 => dV = 0.1*mV  VT = -40*mV  => indx VT = 500
+pop_firing_rate2 = np.sum( hists[500:, :], axis=0 ) / np.sum( hists[:, :], axis=0 ) / (0.001 * 0.04)  # spikes per second
+
+win = parzen(203)
+win = win / np.sum(win)
+pop_firing_rate2 = np.convolve(pop_firing_rate2, win, mode='same')
+t = np.linspace(0, duration, pop_firing_rate2.size)
+axes[0].plot(t, pop_firing_rate2, label="Density above the threshold")
+axes[0].legend()
+
+axes[1].plot(Varr[400:500, :].T)
+
+
+plt.show()
+
 
 # #plotting for visual control
 # path = '/home/ivan/Data/lstm_dens/'
